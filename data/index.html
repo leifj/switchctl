@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SG 231 SmartTuner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" type="text/css" href="/style.css">
+</head>
+<body>
+  <h1>SG 231 SmartTuner</h1>
+  
+  <dl>
+    <dt>Tuned</dt>
+    <dd id="tuned"></dd>
+    <dt>On</dt>
+    <dd id="on"></dd>
+    <dt>Hold</dt>
+    <dd id="hold"></dd>
+  </dl>
+</body>
+<script>
+    window.addEventListener("load",async function() {
+        const r = await fetch("/api/is_tuned");
+        const status = await r.json();
+        document.getElementById('tuned').textContent = status.tuned;
+        document.getElementById('on').textContent = status.on;
+        document.getElementById('hold').textContent = status.hold;
+    });
+</script>
+</html>
