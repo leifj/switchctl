@@ -10,6 +10,6 @@ def before_build_spiffs(source, target, env):
     env.Execute("rm -rf data")
 
     print("Copying React App to SPIFFS...")
-    env.Execute("cp -r web/build data")    
+    env.Execute("cp -pr web/build data")    
 
 env.AddPreAction("$BUILD_DIR/spiffs.bin", before_build_spiffs)

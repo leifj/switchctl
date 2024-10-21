@@ -90,7 +90,7 @@ void setupApi() {
     getStatus(request);
   });
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
-  server.serveStatic("/static/", SPIFFS, "/");
+  server.serveStatic("/s/", SPIFFS, "/");
   server.on("/api/on", HTTP_GET, [](AsyncWebServerRequest *request){
 #ifdef ENABLE
     if (request->hasParam("timer")) {
