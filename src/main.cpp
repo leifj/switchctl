@@ -8,14 +8,16 @@
 
 
 AsyncWebServer server(80);
+#ifdef ENABLE
 #define ENABLE_PIN 12
 #define AUTO_OFF_TIME 10*60*1000
 unsigned int autoOffPeriod = AUTO_OFF_TIME;
+bool enabled = true;
+TimerEvent autoOff;
+#endif
 int cur_pin;
 
 static const int pins[] = {27,14,32,33,25,26};
-bool enabled = false;
-TimerEvent autoOff;
 
 void addBool(JsonDocument *doc, String name, bool value) {
   if (value) {
@@ -29,6 +31,7 @@ void addString(JsonDocument *doc, String name, String value) {
   (*doc)[name].set(value);
 }
 
+#ifdef ENABLE
 void disableSwitch() {
     digitalWrite(ENABLE_PIN,LOW);
     enabled = false;
@@ -39,33 +42,40 @@ void enableSwitch() {
     enabled = true;
     autoOff.set(autoOffPeriod,disableSwitch);
 }
+#endif
 
 void off(bool disable) {
+#ifdef ENABLE
   if (disable) {
     disableSwitch();
   }
+#endif
   for (auto pin: pins) {
-    digitalWrite(pin,LOW);
+    digitalWrite(pin,HIGH);
   }
   cur_pin = -1;
 }
 
 void on(int pin) {
   off(false);
-  Serial.printf("setting pad %d (%d) HIGH\n",pins[pin],pin);
-  digitalWrite(pins[pin],HIGH);
-  autoOff.set(autoOffPeriod,disableSwitch);
+  Serial.printf("setting pad %d (%d) on\n",pins[pin],pin);
+  digitalWrite(pins[pin],LOW);
   cur_pin = pin;
+#ifdef ENABLE
+  autoOff.set(autoOffPeriod,disableSwitch);
   if (!enabled) {
     enableSwitch();
   }
+#endif
 }
 
 void getStatus(AsyncWebServerRequest *request) {
   StaticJsonDocument<1024> doc;
   Serial.println("Processing request...");
   addString(&doc,"pin",String(cur_pin));
+#ifdef ENABLE
   addBool(&doc,"enabled",enabled);
+#endif
   char buffer[1024];
   serializeJson(doc, buffer);
   
@@ -82,11 +92,13 @@ void setupApi() {
   server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
   server.serveStatic("/static/", SPIFFS, "/");
   server.on("/api/on", HTTP_GET, [](AsyncWebServerRequest *request){
+#ifdef ENABLE
     if (request->hasParam("timer")) {
       autoOffPeriod = request->getParam("timer")->value().toInt();
     } else {
       autoOffPeriod = AUTO_OFF_TIME;
     }
+#endif
     on(request->getParam("pin")->value().toInt());
     getStatus(request);
   });
@@ -94,6 +106,7 @@ void setupApi() {
     off(false);
     getStatus(request);
   });
+#ifdef ENABLE
   server.on("/api/disable", HTTP_GET, [](AsyncWebServerRequest *request){
     off(true);
     getStatus(request);
@@ -104,7 +117,9 @@ void setupApi() {
     } else {
       autoOffPeriod = AUTO_OFF_TIME;
     }
-    enableSwitch();
+    if (!enabled) {
+      enableSwitch();
+    }
     off(false);
     getStatus(request);
   });
@@ -114,9 +129,12 @@ void setupApi() {
     } else {
       autoOffPeriod = AUTO_OFF_TIME;
     }
-    enableSwitch();
+    if (!enabled) {
+      enableSwitch();
+    }
     getStatus(request);
   });
+#endif
   server.begin();
 }
 
@@ -164,14 +182,16 @@ void setup() {
 
   setupApi();
 
+#ifdef ENABLE
   gpio_pad_select_gpio(ENABLE_PIN);
   pinMode(ENABLE_PIN,OUTPUT);
   disableSwitch();
+#endif
   for (auto pin: pins) {
     Serial.printf("initializing pin %d\n",pin);
-    gpio_pad_select_gpio(pin);
+      (pin);
     pinMode(pin,OUTPUT);
-    digitalWrite(pin,LOW);
+    digitalWrite(pin,HIGH);
   }
 }
 
@@ -187,6 +207,8 @@ void loop() {
     WiFi.reconnect();
     previousMillis = currentMillis;
   }
+#ifdef ENABLE
   autoOff.update();
+#endif
   delay(1000);
 }
