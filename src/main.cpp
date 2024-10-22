@@ -3,11 +3,13 @@
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPAsyncHTTPUpdateServer.h>
 #include <SPIFFS.h>
 #include <TimerEvent.h>
 
 
 AsyncWebServer server(80);
+ESPAsyncHTTPUpdateServer updateServer;
 #ifdef ENABLE
 #define ENABLE_PIN 12
 #define AUTO_OFF_TIME 10*60*1000
@@ -135,6 +137,8 @@ void setupApi() {
     getStatus(request);
   });
 #endif
+  updateServer.setup(&server);
+  updateServer.setup(&server,OTA_USER,OTA_PASSWORD);
   server.begin();
 }
 
