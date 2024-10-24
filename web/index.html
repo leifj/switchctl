@@ -4,32 +4,43 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width">
       <meta name="htmx-config" content='{"selfRequestsOnly":false}'>
-      <script src="/s/htmx.min.js"></script>
-      <script src="/s/client-side-templates.js"></script>
-      <script src="/s/mustache.js"></script>
-      <link rel="stylesheet" href="/s/pico.min.css"/>
+      <script src="s/htmx.min.js"></script>
+      <script src="s/client-side-templates.js"></script>
+      <script src="s/mustache.js"></script>
+      <script src="s/hyperscript.js"></script>
+      <link rel="stylesheet" href="s/pico.min.css"/>
    </head>
    <body>
       <main class="container">
       <h1>Antenna Switch</h1>
       <div 
-           hx-ext="client-side-templates"
-           hx-get="/api/status" 
-           hx-target="#content"
-           mustache-template="status" hx-trigger="every 1s">
-          <form>
-             <fieldset>
-                <legend>Antenna:</legend>
-                <input type="radio" id="1" name="1"></input>
-                <label htmlFor="1">#1</label>
-                <input type="radio" id="2" name="2"></input>
-                <label htmlFor="2">#2</label>
-                <input type="radio" id="3" name="3"></input>
-                <label htmlFor="3">#3</label> 
-                <input type="radio" id="4" name="4"></input>
-                <label htmlFor="4">#4</label>   
-                <input type="radio" id="5" name="5"></input>
-                <label htmlFor="5">#5</label>
+          <form _="on load
+                    repeat forever 
+                      send check to <fieldset/>
+                      wait 3s
+                    end
+                  end 
+                 ">
+             <fieldset class="grid" _="on check 
+                             fetch http://10.0.0.229/api/status as an Object 
+                             put it into st 
+                             set pin to st.pin
+                             add .outline to <button/> in me
+                             remove .outline from #{`id-$pin`}
+                          on set(pin)
+                             fetch `http://10.0.0.229/api/on?pin=$pin` as an Object
+                             put it into st
+                             log st
+                             set pin to st.pin
+                             add .outline to <button/> in me
+                             remove .outline from #{`id-$pin`}
+                         ">
+                <button class="outline" _="on click send set(pin:0) to <fieldset/>" id="id-0" name="1">#1</button>
+                <button class="outline" _="on click send set(pin:1) to <fieldset/>" id="id-1" name="2">#2</button>
+                <button class="outline" _="on click send set(pin:2) to <fieldset/>" id="id-2" name="3">#3</button>
+                <button class="outline" _="on click send set(pin:3) to <fieldset/>" id="id-3" name="4">#4</button>
+                <button class="outline" _="on click send set(pin:4) to <fieldset/>" id="id-4" name="5">#5</button>
+                <button class="outline" _="on click send set(pin:5) to <fieldset/>" id="id-5" name="6">#6</button>
              </fieldset>
           </form> 
       </div>
