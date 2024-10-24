@@ -3,8 +3,8 @@
       <title>switchctl</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width">
-      <script src="s/hyperscript.js"></script>
-      <link rel="stylesheet" href="s/pico.min.css"/>
+      <script src="/s/hyperscript.js"></script>
+      <link rel="stylesheet" href="/s/pico.min.css"/>
    </head>
    <body>
       <main class="container">
@@ -18,13 +18,13 @@
                   end 
                  ">
              <fieldset class="grid" _="on check 
-                             fetch http://10.0.0.229/api/status as an Object 
+                             fetch /api/status as an Object 
                              put it into st 
                              set pin to st.pin
                              add .outline to <button/> in me
                              remove .outline from #{`id-$pin`}
                           on set(pin)
-                             fetch `http://10.0.0.229/api/on?pin=$pin` as an Object
+                             fetch `/api/on?pin=$pin` as an Object
                              put it into st
                              log st
                              set pin to st.pin
