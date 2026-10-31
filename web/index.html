@@ -1,45 +1,343 @@
-<html>
-   <head>
-      <title>switchctl</title>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width">
-      <script src="/s/hyperscript.js"></script>
-      <link rel="stylesheet" href="/s/pico.min.css"/>
-   </head>
-   <body>
-      <main class="container">
-      <h1>Antenna Switch</h1>
-      <div 
-          <form _="on load
-                    repeat forever 
-                      send check to <fieldset/>
-                      wait 3s
-                    end
-                  end 
-                 ">
-             <fieldset class="grid" _="on check 
-                             fetch /api/status as an Object 
-                             put it into st 
-                             set pin to st.pin
-                             add .outline to <button/> in me
-                             remove .outline from #{`id-$pin`}
-                          on set(pin)
-                             fetch `/api/on?pin=$pin` as an Object
-                             put it into st
-                             log st
-                             set pin to st.pin
-                             add .outline to <button/> in me
-                             remove .outline from #{`id-$pin`}
-                         ">
-                <button class="outline" _="on click send set(pin:0) to <fieldset/>" id="id-0" name="1">#1</button>
-                <button class="outline" _="on click send set(pin:1) to <fieldset/>" id="id-1" name="2">#2</button>
-                <button class="outline" _="on click send set(pin:2) to <fieldset/>" id="id-2" name="3">#3</button>
-                <button class="outline" _="on click send set(pin:3) to <fieldset/>" id="id-3" name="4">#4</button>
-                <button class="outline" _="on click send set(pin:4) to <fieldset/>" id="id-4" name="5">#5</button>
-                <button class="outline" _="on click send set(pin:5) to <fieldset/>" id="id-5" name="6">#6</button>
-             </fieldset>
-          </form> 
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>switchctl</title>
+  <script src="/s/hyperscript.js"></script>
+  <link rel="stylesheet" href="/s/pico.min.css">
+  <style>
+    [role="tablist"] {
+      display: flex;
+      justify-content: flex-start;
+      gap: .25rem;
+      border-bottom: 1px solid var(--pico-card-border-color);
+      margin-bottom: 1.25rem;
+    }
+    [role="tablist"] [role="tab"] {
+      width: auto;
+      margin: 0;
+      padding: .5rem .9rem;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      box-shadow: none;
+      color: var(--pico-muted-color);
+    }
+    [role="tablist"] [role="tab"]:hover { color: var(--pico-primary); }
+    [role="tablist"] [role="tab"][aria-selected="true"] {
+      color: var(--pico-primary);
+      border-bottom-color: var(--pico-primary);
+      font-weight: 600;
+    }
+    [hidden] { display: none !important; }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1rem;
+    }
+    .metric {
+      background: var(--pico-card-background-color);
+      border: 1px solid var(--pico-card-border-color);
+      border-radius: var(--pico-border-radius);
+      padding: .6rem .8rem;
+    }
+    .metric small {
+      display: block;
+      color: var(--pico-muted-color);
+      font-size: .72rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .metric strong {
+      font-size: 1.45rem;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .pill {
+      display: inline-block;
+      padding: .1rem .65rem;
+      border-radius: 999px;
+      font-size: .8rem;
+      background: var(--pico-secondary-background);
+      color: var(--pico-secondary-inverse);
+    }
+    .pill.online { background: #1b7f3b; color: #fff; }
+    .pill.offline { background: #b3261e; color: #fff; }
+    button.active {
+      background: var(--pico-primary);
+      color: var(--pico-primary-inverse);
+      border-color: var(--pico-primary);
+    }
+    button.busy { opacity: .55; pointer-events: none; }
+    /* Pico joins [role=group] buttons into one strip; give them air back. */
+    fieldset[role="group"] { gap: .5rem; }
+    [role="group"] > button:not(:first-child),
+    [role="group"] > button:not(:last-child) {
+      border-radius: var(--pico-border-radius);
+    }
+    .antennas > button { font-size: 1.1rem; }
+    #selected { font-weight: 600; }
+    #updated { color: var(--pico-muted-color); }
+    progress { margin-top: .75rem; }
+  </style>
+</head>
+<body>
+<main class="container">
+  <header>
+    <hgroup>
+      <h1>switchctl</h1>
+      <p>SA0LEF antenna switch</p>
+    </hgroup>
+    <p>
+      <span id="link" class="pill" aria-live="polite">connecting…</span>
+      <small id="updated">waiting for data</small>
+    </p>
+  </header>
+
+  <article id="panel"
+    _="on load
+         repeat forever
+           if document.visibilityState == 'visible'
+             send check to me
+           end
+           wait 1s
+         end
+       end
+       on check
+         fetch /api/status as an Object
+         put it into st
+         send status(st:st) to .status
+         set #updated.textContent to nowString()
+         add .online to #link
+         remove .offline from #link
+         if st.pin == '-1'
+           set #selected.textContent to 'none'
+         else
+           set #selected.textContent to '#' + (st.pin)
+         end
+       catch e
+         add .offline to #link
+         remove .online from #link
+         set #selected.textContent to 'offline'
+       end">
+
+    <nav role="tablist" aria-label="Sections">
+      <button type="button" role="tab" data-tab="antennas"
+        aria-selected="true" onclick="selectTab('antennas')">Antennas</button>
+      <button type="button" role="tab" data-tab="system"
+        aria-selected="false" onclick="selectTab('system')">System</button>
+      <button type="button" role="tab" data-tab="update"
+        aria-selected="false" onclick="selectTab('update')">Update</button>
+    </nav>
+
+    <section id="panel-antennas" role="tabpanel" aria-label="Antennas">
+      <p>Selected: <span id="selected">—</span></p>
+
+      <fieldset role="group" class="antennas" id="antenna-group"
+        _="on status(st)
+             if st.pin == '0' remove .outline from #ant-0 else add .outline to #ant-0 end
+             if st.pin == '1' remove .outline from #ant-1 else add .outline to #ant-1 end
+             if st.pin == '2' remove .outline from #ant-2 else add .outline to #ant-2 end
+             if st.pin == '3' remove .outline from #ant-3 else add .outline to #ant-3 end
+             if st.pin == '4' remove .outline from #ant-4 else add .outline to #ant-4 end
+             if st.pin == '5' remove .outline from #ant-5 else add .outline to #ant-5 end
+           on select(pin)
+             fetch `/api/on?pin=${pin}` as an Object
+             put it into st
+             send status(st:st) to .status
+             send check to #panel
+           catch e
+             log e
+           end">
+        <button type="button" class="outline ant" id="ant-0"
+          _="on click send select(pin:0) to #antenna-group">#1</button>
+        <button type="button" class="outline ant" id="ant-1"
+          _="on click send select(pin:1) to #antenna-group">#2</button>
+        <button type="button" class="outline ant" id="ant-2"
+          _="on click send select(pin:2) to #antenna-group">#3</button>
+        <button type="button" class="outline ant" id="ant-3"
+          _="on click send select(pin:3) to #antenna-group">#4</button>
+        <button type="button" class="outline ant" id="ant-4"
+          _="on click send select(pin:4) to #antenna-group">#5</button>
+        <button type="button" class="outline ant" id="ant-5"
+          _="on click send select(pin:5) to #antenna-group">#6</button>
+      </fieldset>
+
+      <p><small>Antenna 6 (pin 5) selects the dummy load on this station.</small></p>
+    </section>
+
+    <section id="panel-system" role="tabpanel" aria-label="System" hidden>
+      <section class="metric-grid">
+        <div class="metric">
+          <small>Firmware</small>
+          <strong class="status"
+            _="on status(st)
+                 if st.version set my textContent to st.version else set my textContent to '—' end">—</strong>
+        </div>
+        <div class="metric">
+          <small>Uptime</small>
+          <strong class="status"
+            _="on status(st) set my textContent to fmtUptime(st.uptime)">—</strong>
+        </div>
+        <div class="metric">
+          <small>Wi-Fi signal</small>
+          <strong class="status"
+            _="on status(st)
+                 if st.rssi set my textContent to st.rssi + ' dBm'
+                 else set my textContent to '—' end">—</strong>
+        </div>
+        <div class="metric">
+          <small>Free heap</small>
+          <strong class="status"
+            _="on status(st) set my textContent to fmtKB(st.heap)">—</strong>
+        </div>
+      </section>
+    </section>
+
+    <section id="panel-update" role="tabpanel" aria-label="Update" hidden>
+      <p><small>
+        Upload the <code>firmware.bin</code> or <code>spiffs.bin</code> produced by PlatformIO.
+        The switch reboots when the upload finishes. Credentials are the OTA user/password
+        compiled into the firmware.
+      </small></p>
+
+      <div class="grid">
+        <label>OTA user
+          <input id="ota-user" value="ota" autocomplete="username">
+        </label>
+        <label>OTA password
+          <input id="ota-pass" type="password" autocomplete="current-password">
+        </label>
       </div>
-      </main>
-   </body>
+
+      <div class="grid">
+        <label>Firmware image
+          <input id="ota-fw" type="file" accept=".bin">
+        </label>
+        <button id="ota-fw-btn" type="button" onclick="otaUpload('firmware')">Upload firmware</button>
+      </div>
+
+      <div class="grid">
+        <label>Filesystem image
+          <input id="ota-fs" type="file" accept=".bin">
+        </label>
+        <button id="ota-fs-btn" type="button" onclick="otaUpload('filesystem')">Upload filesystem</button>
+      </div>
+
+      <progress id="ota-progress" value="0" max="100"></progress>
+      <p id="ota-status" role="status" aria-live="polite"></p>
+    </section>
+  </article>
+
+  <footer>
+    <small>switchctl · <span id="footer-ip">switchctl.local</span></small>
+  </footer>
+</main>
+
+<noscript>
+  <p>This UI needs JavaScript/hyperscript. The status API is available at <code>/api/status</code>.</p>
+</noscript>
+
+<script>
+  function nowString() {
+    return new Date().toLocaleTimeString();
+  }
+
+  function fmtUptime(seconds) {
+    seconds = Number(seconds) || 0;
+    var h = Math.floor(seconds / 3600);
+    var m = Math.floor((seconds % 3600) / 60);
+    var s = seconds % 60;
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + s + 's';
+    return s + 's';
+  }
+
+  function fmtKB(bytes) {
+    bytes = Number(bytes) || 0;
+    return Math.round(bytes / 1024) + ' kB';
+  }
+
+  function selectTab(name) {
+    var tabs = document.querySelectorAll('[role="tab"]');
+    var found = false;
+    tabs.forEach(function (t) {
+      var on = t.dataset.tab === name;
+      if (on) found = true;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    if (!found) name = 'antennas';
+    document.querySelectorAll('[role="tabpanel"]').forEach(function (p) {
+      p.hidden = p.id !== 'panel-' + name;
+    });
+    history.replaceState(null, '', '#' + name);
+  }
+
+  selectTab(location.hash.slice(1) || 'antennas');
+
+  function otaUpload(kind) {
+    var isFw = kind === 'firmware';
+    var input = document.getElementById(isFw ? 'ota-fw' : 'ota-fs');
+    var button = document.getElementById(isFw ? 'ota-fw-btn' : 'ota-fs-btn');
+    var user = document.getElementById('ota-user').value;
+    var pass = document.getElementById('ota-pass').value;
+    var bar = document.getElementById('ota-progress');
+    var msg = document.getElementById('ota-status');
+    var file = input.files && input.files[0];
+
+    if (!file) {
+      msg.textContent = 'Choose a .bin file first.';
+      return;
+    }
+    if (!pass) {
+      msg.textContent = 'Enter the OTA password.';
+      return;
+    }
+
+    var form = new FormData();
+    form.append(kind, file, file.name);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/update?name=' + encodeURIComponent(kind));
+    xhr.setRequestHeader('Authorization', 'Basic ' + btoa(user + ':' + pass));
+
+    xhr.upload.onprogress = function (e) {
+      if (!e.lengthComputable) return;
+      var pct = Math.round((e.loaded / e.total) * 100);
+      bar.value = pct;
+      msg.textContent = 'Uploading… ' + pct + '%';
+    };
+
+    xhr.onload = function () {
+      button.disabled = false;
+      button.classList.remove('busy');
+      if (xhr.status === 200) {
+        bar.value = 100;
+        msg.textContent = 'Update accepted — rebooting…';
+        setTimeout(function () { location.reload(); }, 6000);
+      } else if (xhr.status === 401) {
+        msg.textContent = 'Authentication failed. Check the OTA user/password.';
+      } else {
+        msg.textContent = 'Update failed (HTTP ' + xhr.status + ').';
+      }
+    };
+
+    xhr.onerror = function () {
+      button.disabled = false;
+      button.classList.remove('busy');
+      msg.textContent = 'Upload failed — connection lost.';
+    };
+
+    button.disabled = true;
+    button.classList.add('busy');
+    bar.value = 0;
+    msg.textContent = 'Starting upload…';
+    xhr.send(form);
+  }
+</script>
+</body>
 </html>
