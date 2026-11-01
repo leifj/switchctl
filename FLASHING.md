@@ -36,8 +36,15 @@ python3 ~/.platformio/packages/tool-esptoolpy/esptool.py \
   write_flash 0x0 .pio/build/az-delivery-devkit-v4/merged-full.bin
 ```
 
-Do **not** pass `--erase-all`/`-e`: WiFi credentials live in NVS and are
-kept, so the device rejoins the network after reboot.
+**Note:** the merged image zero-fills everything between the listed
+offsets, **including the NVS partition at 0x9000** — so stored WiFi
+credentials do **not** survive a merged-image flash. After flashing, the
+device starts its WiFiManager config portal (AP `ESP32_xxxxxxxx` at
+`192.168.4.1`): join it from a phone or laptop, select the network, and
+enter the passphrase. The device then reboots onto the LAN.
+
+To flash **without** losing WiFi credentials, use Option A (`pio run -t
+upload` + `uploadfs`) — it writes only the app and filesystem regions.
 
 Regenerate the image after any change with:
 
